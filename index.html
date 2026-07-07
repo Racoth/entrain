@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ENTRAIN — тон-консоль для внимания</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d131e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ENTRAIN">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.0/lame.min.js"></script>
+<style>
+:root{
+  --ink:#0d131e; --panel:#141d2c; --panel-2:#1a2537; --line:#26334c; --line-2:#33456a;
+  --trace:#54dccf; --trace-dim:#2f8a83; --amber:#e6a94a; --amber-dim:#8a6a2c;
+  --text:#cad6ea; --muted:#7f8ea8; --faint:#54627d;
+  --delta:#6b7cf0; --theta:#5aa9e6; --alpha:#54dccf; --beta:#e6a94a; --gamma:#e2726a;
+  --radius:10px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:
+    radial-gradient(1200px 700px at 78% -10%, #16233a 0%, transparent 55%),
+    radial-gradient(900px 600px at 8% 110%, #14202f 0%, transparent 50%),
+    var(--ink);
+  color:var(--text); font-family:'IBM Plex Sans',system-ui,sans-serif;
+  line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:940px; margin:0 auto; padding:0 22px}
+.mono{font-family:'IBM Plex Mono',monospace}
+
+/* ---- header / hero ---- */
+header{padding:64px 0 30px; position:relative}
+.kicker{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.32em; text-transform:uppercase; color:var(--trace-dim)}
+h1{font-family:'Newsreader',serif; font-weight:400; font-size:clamp(42px,7vw,76px); line-height:1.02; margin:14px 0 6px; letter-spacing:-.01em}
+h1 em{font-style:italic; color:var(--trace)}
+.lede{font-family:'Newsreader',serif; font-size:clamp(17px,2.3vw,21px); color:var(--muted); max-width:560px; margin:10px 0 0}
+.scope{margin:26px 0 0; height:82px; border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); position:relative; overflow:hidden}
+.scope canvas{width:100%; height:100%; display:block}
+
+/* ---- section scaffolding ---- */
+section{padding:40px 0; border-top:1px solid var(--line)}
+.eyebrow{font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint); margin:0 0 14px}
+h2{font-family:'Newsreader',serif; font-weight:400; font-size:clamp(26px,3.6vw,34px); margin:0 0 12px; letter-spacing:-.01em}
+h3{font-family:'IBM Plex Sans'; font-weight:600; font-size:16px; margin:22px 0 6px}
+p{margin:0 0 14px; color:#b7c3d8}
+p.small{font-size:14px; color:var(--muted)}
+a{color:var(--trace)}
+.cols{display:grid; grid-template-columns:1fr 1fr; gap:26px}
+@media(max-width:680px){.cols{grid-template-columns:1fr}}
+
+.note{border-left:2px solid var(--amber-dim); padding:2px 0 2px 16px; margin:18px 0; color:var(--muted); font-size:14.5px}
+.note b{color:var(--amber); font-weight:500}
+
+/* ---- console ---- */
+.console{background:linear-gradient(180deg,var(--panel-2),var(--panel)); border:1px solid var(--line-2); border-radius:16px; padding:22px; box-shadow:inset 0 1px 0 #ffffff0d, 0 20px 60px -30px #000}
+.console-top{display:flex; align-items:center; justify-content:center; gap:0; height:210px; position:relative; background:var(--ink); border:1px solid var(--line); border-radius:12px; overflow:hidden; margin-bottom:18px}
+#focus{width:20px; height:20px; border-radius:50%; background:var(--trace); box-shadow:0 0 0 0 var(--trace); transition:none}
+.readout{position:absolute; top:12px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted)}
+.readout.l{left:14px}
+.readout.r{right:14px}
+.readout.b{bottom:12px; left:14px; top:auto; color:var(--faint)}
+.readout.br{bottom:12px; right:14px; top:auto; color:var(--faint)}
+#bandtag{color:var(--trace)}
+
+/* band strip */
+.bands{display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin-bottom:18px}
+.band{border:1px solid var(--line); border-radius:8px; padding:9px 8px; cursor:pointer; background:var(--panel); text-align:left; transition:border-color .15s, background .15s}
+.band:hover{border-color:var(--line-2)}
+.band.on{background:var(--panel-2)}
+.band .nm{font-family:'Newsreader',serif; font-size:16px; line-height:1}
+.band .rg{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--faint); margin-top:3px}
+.band[data-band="delta"] .nm{color:var(--delta)} .band[data-band="delta"].on{border-color:var(--delta)}
+.band[data-band="theta"] .nm{color:var(--theta)} .band[data-band="theta"].on{border-color:var(--theta)}
+.band[data-band="alpha"] .nm{color:var(--alpha)} .band[data-band="alpha"].on{border-color:var(--alpha)}
+.band[data-band="beta"]  .nm{color:var(--beta)}  .band[data-band="beta"].on{border-color:var(--beta)}
+.band[data-band="gamma"] .nm{color:var(--gamma)} .band[data-band="gamma"].on{border-color:var(--gamma)}
+
+/* controls */
+.row{display:flex; align-items:center; gap:14px; margin-bottom:13px}
+.row label{font-size:13px; color:var(--muted); width:112px; flex:none}
+.row .val{font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--text); min-width:74px; text-align:right; flex:none}
+input[type=range]{-webkit-appearance:none; appearance:none; flex:1; height:4px; border-radius:2px; background:var(--line-2); outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--trace); cursor:pointer; border:2px solid var(--ink)}
+input[type=range]::-moz-range-thumb{width:16px; height:16px; border-radius:50%; background:var(--trace); cursor:pointer; border:2px solid var(--ink)}
+select{background:var(--panel); color:var(--text); border:1px solid var(--line-2); border-radius:8px; padding:8px 10px; font-family:'IBM Plex Sans'; font-size:13px; outline:none; cursor:pointer}
+.controls-grid{display:grid; grid-template-columns:1fr 1fr; gap:0 26px}
+@media(max-width:680px){.controls-grid{grid-template-columns:1fr}}
+
+.btnrow{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:6px}
+button.act{font-family:'IBM Plex Sans'; font-weight:500; font-size:14px; padding:11px 20px; border-radius:9px; border:1px solid var(--line-2); background:var(--panel); color:var(--text); cursor:pointer; transition:background .15s, border-color .15s}
+button.act:hover{background:var(--panel-2); border-color:var(--trace-dim)}
+button.act.primary{background:var(--trace); color:#06201d; border-color:var(--trace); font-weight:600}
+button.act.primary:hover{filter:brightness(1.08)}
+button.act:disabled{opacity:.5; cursor:default}
+.ramp-wrap{border-top:1px solid var(--line); margin-top:16px; padding-top:16px}
+.check{display:flex; align-items:center; gap:9px; font-size:13px; color:var(--muted); cursor:pointer}
+.check input{width:15px; height:15px; accent-color:var(--trace)}
+.export-wrap{border-top:1px solid var(--line); margin-top:16px; padding-top:16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+#exstatus{font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted)}
+
+.matrix{width:100%; border-collapse:collapse; font-size:14px; margin:8px 0 4px}
+.matrix th{text-align:left; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); font-weight:400; padding:8px 12px 8px 0; border-bottom:1px solid var(--line)}
+.matrix td{padding:11px 12px 11px 0; border-bottom:1px solid var(--line); vertical-align:top; color:#b7c3d8}
+.matrix td:first-child{font-weight:500; color:var(--text); white-space:nowrap}
+.matrix tr:last-child td{border-bottom:none}
+
+.refs{list-style:none; padding:0; margin:0}
+.refs li{padding:12px 0; border-bottom:1px solid var(--line)}
+.refs li:last-child{border-bottom:none}
+.refs .rt{font-weight:500; color:var(--text)}
+.refs .rd{font-size:13.5px; color:var(--muted); margin-top:2px}
+
+footer{padding:40px 0 70px; border-top:1px solid var(--line); color:var(--faint); font-size:13px}
+.tag{display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:11px; padding:2px 8px; border:1px solid var(--line-2); border-radius:20px; color:var(--muted); margin-right:6px}
+@media(prefers-reduced-motion:reduce){#focus{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<header>
+  <div class="kicker">Тон-консоль для внимания</div>
+  <h1>ENTRAIN</h1>
+  <p class="lede">Пульсирующие тона и точка, на которой держится взгляд. Небольшой инструмент для тренировки устойчивого внимания — сделанный честно в отношении того, что он делает, а что нет.</p>
+  <div class="scope"><canvas id="heroscope"></canvas></div>
+</header>
+
+<!-- WHAT -->
+<section id="what">
+  <div class="eyebrow">01 — Что это</div>
+  <h2>Метроном, в который вы <em style="font-style:italic;font-family:Newsreader">вслушиваетесь</em>, а не подпеваете.</h2>
+  <div class="cols">
+    <div>
+      <p>В основе — <b style="color:var(--text);font-weight:500">изохронный тон</b>: постоянная высота звука, быстро включаемая и выключаемая с точной частотой — скажем, 15 раз в секунду. В паре с неподвижной точкой для взгляда это даёт вниманию быструю, регулярную цель, за которую можно зацепиться.</p>
+      <p>Практика проста. Смотрите на точку. Считайте удары. Замечайте момент, когда теряете счёт или взгляд уходит в сторону — и возвращайтесь. Это медитация со счётом дыхания, только с более быстрым, внешне заданным ориентиром.</p>
+    </div>
+    <div>
+      <p>Здесь также доступны ещё два способа создания ритма. <b style="color:var(--text);font-weight:500">Бинауральный бит</b> посылает слегка разные высоты звука в каждое ухо (392,5 Гц слева, 407,5 Гц справа → бит 15 Гц формируется уже внутри вашей слуховой системы, только в наушниках). <b style="color:var(--text);font-weight:500">Монауральный бит</b> смешивает эти две высоты звука ещё в воздухе, до того как они достигают ушей.</p>
+      <p class="small">Изохронный — самый сильный, наиболее отчётливо слышимый стимул. Бинауральный — самый тонкий и именно он чаще всего фигурирует в научной литературе.</p>
+    </div>
+  </div>
+  <div class="note"><b>Честная оговорка.</b> Популярная история — «подберите тон под частоту мозговой волны, и мозг последует за ней» — преувеличивает реальный, но слабый эффект. ЭЭГ показывает, что слуховая кора действительно отслеживает периодический звук (steady-state response), но устойчивые, долгосрочные изменения настроения, концентрации или «состояния мозга» от этих тонов не имеют твёрдого научного подтверждения; результаты исследований противоречивы, а эффекты малы. Относитесь к этому как к <b>вспомогательному средству для тренировки внимания и расслабления</b>, а не устройству для «взлома мозга». На разумной громкости оно не навредит — но и не перепрошьёт вас.</div>
+</section>
+
+<!-- CONSOLE -->
+<section id="console">
+  <div class="eyebrow">02 — Консоль</div>
+  <h2>Сгенерируйте сессию.</h2>
+  <p class="small">Выберите диапазон, способ формирования бита и держите взгляд на точке. Для бинаурального режима используйте наушники. Экспортируйте файл, чтобы взять его с собой.</p>
+
+  <div class="console" style="margin-top:20px">
+
+    <div class="bands" id="bands">
+      <button class="band on" data-band="alpha" data-hz="10"><div class="nm">Альфа</div><div class="rg">8–12 Гц</div></button>
+      <button class="band" data-band="delta" data-hz="2.5"><div class="nm">Дельта</div><div class="rg">0.5–4 Гц</div></button>
+      <button class="band" data-band="theta" data-hz="6"><div class="nm">Тета</div><div class="rg">4–8 Гц</div></button>
+      <button class="band" data-band="beta" data-hz="18"><div class="nm">Бета</div><div class="rg">13–30 Гц</div></button>
+      <button class="band" data-band="gamma" data-hz="40"><div class="nm">Гамма</div><div class="rg">30–45 Гц</div></button>
+    </div>
+
+    <div class="console-top">
+      <span class="readout l mono" id="timer">00:00</span>
+      <span class="readout r mono"><span id="bandtag">альфа</span> · <span id="hztag">10.0 Гц</span></span>
+      <div id="focus"></div>
+      <span class="readout b mono" id="modetag">изохронный · плавный</span>
+      <span class="readout br mono" id="statetag">ожидание</span>
+    </div>
+
+    <div class="controls-grid">
+      <div>
+        <div class="row">
+          <label>Метод</label>
+          <select id="mode" style="flex:1">
+            <option value="iso-smooth" selected>Изохронный — плавный импульс</option>
+            <option value="iso-hard">Изохронный — резкий гейт</option>
+            <option value="binaural">Бинауральный (наушники)</option>
+            <option value="monaural">Монауральный</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Частота бита</label>
+          <input type="range" id="beat" min="0.5" max="45" step="0.5" value="10">
+          <span class="val" id="beat-v">10.0 Гц</span>
+        </div>
+      </div>
+      <div>
+        <div class="row">
+          <label>Несущий тон</label>
+          <input type="range" id="carrier" min="80" max="1000" step="5" value="220">
+          <span class="val" id="carrier-v">220 Гц</span>
+        </div>
+        <div class="row">
+          <label>Громкость</label>
+          <input type="range" id="vol" min="0" max="100" step="1" value="65">
+          <span class="val" id="vol-v">65%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ramp-wrap">
+      <label class="check"><input type="checkbox" id="rampOn"> Плавный переход сессии — смещать частоту бита во времени («спуск», используемый в треках в стиле Hemi-Sync)</label>
+      <div class="controls-grid" id="rampControls" style="display:none; margin-top:12px">
+        <div class="row">
+          <label>Переход к</label>
+          <input type="range" id="rampTo" min="0.5" max="45" step="0.5" value="4">
+          <span class="val" id="rampTo-v">4.0 Гц</span>
+        </div>
+        <div class="row">
+          <label>За</label>
+          <input type="range" id="rampMin" min="1" max="30" step="1" value="10">
+          <span class="val" id="rampMin-v">10 мин</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="btnrow" style="margin-top:18px">
+      <button class="act primary" id="toggle">▶ Старт</button>
+      <button class="act" id="beep">Тестовый сигнал</button>
+    </div>
+
+    <div class="export-wrap">
+      <span class="small" style="color:var(--muted)">Экспорт</span>
+      <select id="exdur">
+        <option value="60">1 мин</option>
+        <option value="180">3 мин</option>
+        <option value="300" selected>5 мин</option>
+        <option value="600">10 мин</option>
+        <option value="1200">20 мин</option>
+        <option value="1800">30 мин</option>
+      </select>
+      <button class="act" id="export">↓ Экспортировать аудиофайл</button>
+      <span id="exstatus"></span>
+    </div>
+
+  </div>
+</section>
+
+<!-- BANDS / EFFECTS -->
+<section id="bands-guide">
+  <div class="eyebrow">03 — Диапазоны и предполагаемые эффекты</div>
+  <h2>Для чего люди используют каждый диапазон.</h2>
+  <p class="small">Это ассоциации из литературы по ЭЭГ и энтрейнменту. Они описывают, какой ритм преобладает в ЭЭГ покоя в этом состоянии — а не гарантию, что прослушивание тона вызывает это состояние. Читайте колонку «эффект» как «к чему стремятся практики», с учётом оговорки выше.</p>
+  <table class="matrix">
+    <thead><tr><th>Диапазон</th><th>Частота</th><th>Ассоциируется с</th><th>Обычно используется для</th></tr></thead>
+    <tbody>
+      <tr><td style="color:var(--delta)">Дельта</td><td class="mono">0.5–4 Гц</td><td>Глубокий сон без сновидений</td><td>Засыпание, глубокий отдых — обычно как цель плавного перехода, а не стартовая точка</td></tr>
+      <tr><td style="color:var(--theta)">Тета</td><td class="mono">4–8 Гц</td><td>Сонливость, глубокая медитация, гипнагогия</td><td>Медитация, творческие грёзы, состояние «на грани сна»</td></tr>
+      <tr><td style="color:var(--alpha)">Альфа</td><td class="mono">8–12 Гц</td><td>Спокойное бодрствование с закрытыми глазами</td><td>Расслабленная концентрация, отдых, мягкая точка старта</td></tr>
+      <tr><td style="color:var(--beta)">Бета</td><td class="mono">13–30 Гц</td><td>Активное, вовлечённое мышление</td><td>Концентрация, активная работа, «упражнение» из оригинального поста на 15–20 Гц</td></tr>
+      <tr><td style="color:var(--gamma)">Гамма</td><td class="mono">30–45 Гц</td><td>Связывание информации высокого уровня, интенсивная концентрация</td><td>Эксперименты с пиковым вниманием; наименее подтверждённый, наиболее спекулятивный диапазон</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- HOW -->
+<section id="how">
+  <div class="eyebrow">04 — Как проводить сессию</div>
+  <h2>Рабочий протокол.</h2>
+  <div class="cols">
+    <div>
+      <h3>Упражнение с 4chan (тренировка внимания)</h3>
+      <p>Метод <span class="tag">изохронный · плавный</span>, диапазон <span class="tag">бета 15–20 Гц</span>, несущая частота около 220–300 Гц, комфортная громкость. Смотрите на точку. В первую минуту вы можете не различать отдельные удары — это нормально. Тренируйтесь, пока каждый удар не станет отчётливым, затем старайтесь концентрироваться на точке чуть сильнее с каждым ударом.</p>
+      <h3>Расслабление</h3>
+      <p>Метод <span class="tag">бинауральный</span> в наушниках, диапазон <span class="tag">альфа 10 Гц</span>, включён плавный переход к <span class="tag">тета 5 Гц</span> за 10–15 мин. Закройте глаза и позвольте «спуску» унести вас.</p>
+    </div>
+    <div>
+      <h3>Разумные ограничения</h3>
+      <p>Держите громкость низкой — чёткий тон, над которым можно думать, а не тот, что утомляет уши. 10–20 минут вполне достаточно для сессии. Остановитесь при любой головной боли или дискомфорте.</p>
+      <div class="note" style="margin-top:4px"><b>Не используйте</b>, если у вас эпилепсия или судорожные припадки в анамнезе, при вождении или работе с техникой, а также при кардиостимуляторе/слуховом имплантате — без консультации с врачом. Мигающие/пульсирующие стимулы несут реальный (небольшой) риск судорог. Визуальная точка пульсирует мягко, а экспортированный аудиофайл вообще не содержит света — но лучше проявить осторожность.</div>
+    </div>
+  </div>
+</section>
+
+<!-- RESEARCH -->
+<section id="research">
+  <div class="eyebrow">05 — Углубляемся</div>
+  <h2>Предшественники и что почитать.</h2>
+  <p class="small">Если хотите разобраться в теме глубже — Holosync, Hemi-Sync и остальное — вот честная картина происходящего и термины, которые откроют доступ к настоящей научной литературе.</p>
+  <ul class="refs">
+    <li><div class="rt">Hemi-Sync (Институт Монро, 1970-е)</div><div class="rd">Первая коммерческая система бинауральных биений. Роберт Монро запатентовал метод; институт построил вокруг «уровней фокуса» большой каталог. Это основа всего жанра — и источник большинства его непроверенных утверждений. Поисковый запрос: <span class="mono">binaural beats Monroe</span>.</div></li>
+    <li><div class="rt">Holosync (Centerpointe, Билл Харрис)</div><div class="rd">Коммерческая программа, накладывающая бинауральные биения поверх музыки с медленным многолетним «спуском» через диапазоны. Активно продвигается, но независимых рецензируемых доказательств заявленных эффектов практически нет. Ползунок «плавного перехода» здесь — упрощённая, прозрачная версия той же идеи спуска.</div></li>
+    <li><div class="rt">Слуховой стационарный вызванный ответ (ASSR)</div><div class="rd">Реальная, хорошо воспроизводимая нейронаука, лежащая в основе всего этого: кора головного мозга даёт измеримый ЭЭГ/МЭГ-ответ, следующий за периодическим звуком, наиболее выражен около 40 Гц. Это подлинное явление, используемое клинически (например, для оценки слуха) — именно оно и есть то зерно истины, вокруг которого выросла маркетинговая мифология. <span class="mono">auditory steady-state response 40 Hz</span>.</div></li>
+    <li><div class="rt">Нейронный энтрейнмент / ритмическая сенсорная стимуляция</div><div class="rd">Активный фронт исследований — включая работы по свето-звуковой стимуляции 40 Гц на моделях болезни Альцгеймера (линия «GENUS» из MIT). Многообещающе на животных, пока не подтверждено у людей. Ищите здесь, если нужна актуальная наука, а не предания 1970-х. <span class="mono">gamma entrainment GENUS 40Hz</span>.</div></li>
+    <li><div class="rt">Систематические обзоры бинауральных биений</div><div class="rd">Существует несколько метаанализов (по памяти, вниманию, тревожности). Устойчивый вывод: эффекты малы и непостоянны, часто не выдерживают более строго контролируемых исследований. Читайте их <em style="font-style:italic;font-family:Newsreader">перед</em> тем, как знакомиться с маркетингом. <span class="mono">binaural beats meta-analysis cognition</span>.</div></li>
+  </ul>
+  <p class="note" style="margin-top:18px"><b>Об эгрегоре.</b> Пост, с которого всё началось, подаёт это как магию квантового наблюдения. Этот слой — фольклор: наблюдение не схлопывает волновую функцию силой намерения, а «психического кадра в секунду» не существует. Но <b>практика</b>, лежащая в основе — устойчивое, ритмичное, однонаправленное внимание — это именно то, что отрабатывает любая созерцательная традиция, и она стоит того, чтобы заниматься ею сама по себе.</p>
+</section>
+
+<footer>
+  <div style="margin-bottom:10px">
+    <span class="tag">Web Audio API</span><span class="tag">офлайн-рендеринг</span><span class="tag">экспорт MP3 / WAV</span><span class="tag">данные не покидают устройство</span>
+  </div>
+  ENTRAIN · единая самодостаточная страница. Полностью работает офлайн после загрузки. Всё генерируется в реальном времени прямо в браузере; ничего не записывается и никуда не отправляется.
+</footer>
+
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ---------- hero scope (ambient) ---------- */
+(function(){
+  const c=$('#heroscope'), x=c.getContext('2d');
+  function size(){ const r=c.getBoundingClientRect(), d=devicePixelRatio||1; c.width=r.width*d; c.height=r.height*d; x.setTransform(d,0,0,d,0,0); return r; }
+  let r=size(); addEventListener('resize',()=>r=size());
+  let t=0;
+  (function loop(){
+    const w=r.width,h=r.height; x.clearRect(0,0,w,h);
+    x.strokeStyle='#54dccf'; x.globalAlpha=.85; x.lineWidth=1.4; x.beginPath();
+    for(let i=0;i<=w;i++){
+      const p=i/w*Math.PI*2*3 + t;
+      const env=(Math.sin(t*0.7+i/w*Math.PI)*.5+.5);
+      const y=h/2 + Math.sin(p)*h*0.26*env + Math.sin(p*5.3)*h*0.05*env;
+      i?x.lineTo(i,y):x.moveTo(i,y);
+    }
+    x.stroke(); x.globalAlpha=1;
+    t+=0.03; requestAnimationFrame(loop);
+  })();
+})();
+
+/* ---------- audio engine ---------- */
+let ctx=null, nodes=null, running=false, startedAt=0, sessDur=0, raf=0, tick=0;
+
+const modeEl=$('#mode'), beatEl=$('#beat'), carEl=$('#carrier'), volEl=$('#vol');
+const rampOn=$('#rampOn'), rampTo=$('#rampTo'), rampMin=$('#rampMin');
+
+function P(){
+  return {
+    mode:modeEl.value,
+    beat:+beatEl.value,
+    carrier:+carEl.value,
+    vol:(+volEl.value/100)*0.85,
+    ramp:rampOn.checked,
+    rampTo:+rampTo.value,
+    rampSec:+rampMin.value*60
+  };
+}
+
+/* build the graph into any (online or offline) context.
+   scheduleGlide: apply beat frequency ramp across the whole render. */
+function build(ac, dest, p, glideDur){
+  const t0 = ac.currentTime + 0.04;
+  const master = ac.createGain();
+  master.gain.setValueAtTime(0, t0);
+  master.gain.linearRampToValueAtTime(p.vol, t0+0.4);       // fade-in, no click
+  master.connect(dest);
+  const g={master, stop:[]};
+
+  const startBeat=p.beat, endBeat=(p.ramp?p.rampTo:p.beat);
+  const useGlide = p.ramp && glideDur && Math.abs(endBeat-startBeat)>0.01;
+
+  if(p.mode==='binaural' || p.mode==='monaural'){
+    const half=(f)=>[p.carrier - f/2, p.carrier + f/2];
+    const [lf,rf]=half(startBeat);
+    const oL=ac.createOscillator(), oR=ac.createOscillator();
+    oL.type=oR.type='sine'; oL.frequency.value=lf; oR.frequency.value=rf;
+    if(useGlide){
+      const [lf2,rf2]=half(endBeat);
+      oL.frequency.linearRampToValueAtTime(lf2, t0+glideDur);
+      oR.frequency.linearRampToValueAtTime(rf2, t0+glideDur);
+    }
+    const gl=ac.createGain(), gr=ac.createGain(); gl.gain.value=gr.gain.value=0.5;
+    if(p.mode==='binaural'){
+      const merge=ac.createChannelMerger(2);
+      oL.connect(gl); gl.connect(merge,0,0);
+      oR.connect(gr); gr.connect(merge,0,1);
+      merge.connect(master);
+    } else { // monaural: sum both in one air-mixed signal
+      oL.connect(gl); oR.connect(gr); gl.connect(master); gr.connect(master);
+    }
+    oL.start(t0); oR.start(t0); g.stop.push(oL,oR);
+    g.oL=oL; g.oR=oR;
+  } else {
+    const car=ac.createOscillator(); car.type='sine'; car.frequency.value=p.carrier;
+    const pulse=ac.createGain(); pulse.gain.value=0.5;
+    const lfo=ac.createOscillator(); lfo.type='square'; lfo.frequency.value=startBeat;
+    if(useGlide) lfo.frequency.linearRampToValueAtTime(endBeat, t0+glideDur);
+    const lp=ac.createBiquadFilter(); lp.type='lowpass';
+    lp.frequency.value = p.mode==='iso-smooth' ? Math.max(12,startBeat*3) : 3500;
+    if(p.mode==='iso-smooth' && useGlide) lp.frequency.linearRampToValueAtTime(Math.max(12,endBeat*3), t0+glideDur);
+    const lg=ac.createGain(); lg.gain.value=0.5;
+    lfo.connect(lp); lp.connect(lg); lg.connect(pulse.gain);
+    car.connect(pulse); pulse.connect(master);
+    car.start(t0); lfo.start(t0); g.stop.push(car,lfo);
+    g.car=car; g.lfo=lfo; g.lp=lp;
+  }
+  return g;
+}
+
+function live(){
+  ctx = ctx || new (window.AudioContext||window.webkitAudioContext)();
+  ctx.resume();
+  nodes = build(ctx, ctx.destination, P(), P().rampSec);
+  startedAt = ctx.currentTime;
+  sessDur = P().ramp ? P().rampSec : 0;
+  running = true;
+  $('#toggle').innerHTML='■ Стоп'; $('#toggle').classList.remove('primary');
+  $('#statetag').textContent='работает'; $('#statetag').style.color='var(--trace)';
+  clearInterval(tick);
+  tick=setInterval(()=>{ $('#timer').textContent=fmt(ctx.currentTime-startedAt); syncTagsLive(); },200);
+  animate();
+}
+function stopLive(){
+  running=false;
+  if(nodes){ const t=ctx.currentTime; nodes.master.gain.cancelScheduledValues(t); nodes.master.gain.setTargetAtTime(0,t,0.05);
+    const s=nodes.stop; setTimeout(()=>s.forEach(o=>{try{o.stop()}catch(e){}}),120); }
+  nodes=null; clearInterval(tick); cancelAnimationFrame(raf);
+  $('#toggle').innerHTML='▶ Старт'; $('#toggle').classList.add('primary');
+  $('#statetag').textContent='ожидание'; $('#statetag').style.color='var(--faint)';
+  $('#focus').style.boxShadow='0 0 0 0 var(--trace)'; $('#focus').style.transform='scale(1)';
+}
+$('#toggle').onclick=()=>running?stopLive():live();
+
+function currentBeat(){
+  const p=P();
+  if(!running||!p.ramp||!sessDur) return p.beat;
+  const el=clamp((ctx.currentTime-startedAt)/sessDur,0,1);
+  return p.beat+(p.rampTo-p.beat)*el;
+}
+function syncTagsLive(){
+  const b=currentBeat();
+  $('#hztag').textContent=b.toFixed(1)+' Гц';
+  $('#bandtag').textContent=bandName(b);
+}
+
+function animate(){
+  if(!running) return;
+  const b=currentBeat();
+  const ph=((ctx.currentTime-startedAt)*b)%1;
+  const on=ph<0.5;
+  const el=$('#focus');
+  el.style.transform=on?'scale(1.65)':'scale(1)';
+  el.style.boxShadow=on?'0 0 26px 3px var(--trace)':'0 0 0 0 var(--trace)';
+  raf=requestAnimationFrame(animate);
+}
+
+function fmt(s){s=Math.max(0,s);const m=Math.floor(s/60),r=Math.floor(s%60);return String(m).padStart(2,'0')+':'+String(r).padStart(2,'0');}
+function bandName(hz){
+  if(hz<4)return'дельта'; if(hz<8)return'тета'; if(hz<13)return'альфа'; if(hz<30)return'бета'; return'гамма';
+}
+
+/* ---------- UI sync ---------- */
+function refresh(){
+  $('#beat-v').textContent=(+beatEl.value).toFixed(1)+' Гц';
+  $('#carrier-v').textContent=(+carEl.value)+' Гц';
+  $('#vol-v').textContent=(+volEl.value)+'%';
+  $('#rampTo-v').textContent=(+rampTo.value).toFixed(1)+' Гц';
+  $('#rampMin-v').textContent=(+rampMin.value)+' мин';
+  const mLabel={'iso-smooth':'изохронный · плавный','iso-hard':'изохронный · резкий','binaural':'бинауральный','monaural':'монауральный'}[modeEl.value];
+  $('#modetag').textContent=mLabel;
+  if(!running){ $('#hztag').textContent=(+beatEl.value).toFixed(1)+' Гц'; $('#bandtag').textContent=bandName(+beatEl.value); }
+  // highlight matching band button
+  const bandKeyMap={'дельта':'delta','тета':'theta','альфа':'alpha','бета':'beta','гамма':'gamma'};
+  document.querySelectorAll('.band').forEach(b=>b.classList.toggle('on', b.dataset.band===bandKeyMap[bandName(+beatEl.value)]));
+  // live param nudge
+  if(running && nodes){
+    const t=ctx.currentTime, p=P();
+    nodes.master.gain.setTargetAtTime(p.vol,t,0.03);
+    if(nodes.car){ nodes.car.frequency.setTargetAtTime(p.carrier,t,0.03);
+      if(!p.ramp) nodes.lfo.frequency.setTargetAtTime(p.beat,t,0.03);
+      nodes.lp.frequency.setTargetAtTime(p.mode==='iso-smooth'?Math.max(12,currentBeat()*3):3500,t,0.03);
+    }
+    if(nodes.oL && !p.ramp){ nodes.oL.frequency.setTargetAtTime(p.carrier-p.beat/2,t,0.03); nodes.oR.frequency.setTargetAtTime(p.carrier+p.beat/2,t,0.03); }
+  }
+}
+[modeEl,beatEl,carEl,volEl,rampTo,rampMin].forEach(el=>el.addEventListener('input',refresh));
+modeEl.addEventListener('change',()=>{ if(running){stopLive();live();} });
+rampOn.addEventListener('change',()=>{ $('#rampControls').style.display=rampOn.checked?'grid':'none'; if(running){stopLive();live();} });
+
+document.querySelectorAll('.band').forEach(b=>b.addEventListener('click',()=>{
+  beatEl.value=b.dataset.hz; refresh();
+  if(running){ stopLive(); live(); }
+}));
+
+/* ---------- test beep ---------- */
+$('#beep').onclick=()=>{
+  ctx=ctx||new (window.AudioContext||window.webkitAudioContext)(); ctx.resume();
+  const o=ctx.createOscillator(),g=ctx.createGain();
+  o.type='sine'; o.frequency.value=660; g.gain.value=0.0001;
+  o.connect(g); g.connect(ctx.destination);
+  const t=ctx.currentTime;
+  g.gain.exponentialRampToValueAtTime(0.5,t+0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.45);
+  o.start(t); o.stop(t+0.5);
+};
+
+/* ---------- export ---------- */
+$('#export').onclick=async()=>{
+  const p=P(), dur=+$('#exdur').value, SR=32000, st=$('#exstatus'), btn=$('#export');
+  btn.disabled=true;
+  try{
+    st.textContent='рендеринг…';
+    const oac=new OfflineAudioContext(2, SR*dur, SR);
+    build(oac, oac.destination, p, dur);            // glide spans full file
+    const buf=await oac.startRendering();
+    const L=buf.getChannelData(0), R=buf.numberOfChannels>1?buf.getChannelData(1):buf.getChannelData(0);
+
+    let blob, ext;
+    if(window.lamejs && lamejs.Mp3Encoder){
+      const enc=new lamejs.Mp3Encoder(2,SR,128), CH=1152, out=[];
+      const li=new Int16Array(CH), ri=new Int16Array(CH);
+      for(let i=0;i<L.length;i+=CH){
+        const n=Math.min(CH,L.length-i);
+        for(let j=0;j<n;j++){ li[j]=clamp(L[i+j]*32767,-32768,32767)|0; ri[j]=clamp(R[i+j]*32767,-32768,32767)|0; }
+        const d=enc.encodeBuffer(li.subarray(0,n),ri.subarray(0,n)); if(d.length)out.push(new Uint8Array(d));
+        if((i/CH)%300===0){ st.textContent='кодирование '+Math.round(i/L.length*100)+'%'; await new Promise(r=>setTimeout(r,0)); }
+      }
+      const f=enc.flush(); if(f.length)out.push(new Uint8Array(f));
+      blob=new Blob(out,{type:'audio/mpeg'}); ext='mp3';
+    } else {
+      st.textContent='энкодер недоступен — записываем WAV…';
+      blob=wav(L,R,SR); ext='wav';
+    }
+    const label=(p.mode.startsWith('iso')?'isochronic':p.mode)+'_'+p.beat+'hz'+(p.ramp?'-to-'+p.rampTo+'hz':'')+'_'+p.carrier+'c_'+Math.round(dur/60)+'min.'+ext;
+    const url=URL.createObjectURL(blob), a=document.createElement('a');
+    a.href=url; a.download=label; document.body.appendChild(a); a.click(); a.remove();
+    st.textContent='сохранено '+label+' · '+(blob.size/1048576).toFixed(1)+' МБ';
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }catch(e){ st.textContent='ошибка экспорта: '+e.message; }
+  btn.disabled=false;
+};
+function wav(L,R,SR){
+  const n=L.length,h=44,dv=new DataView(new ArrayBuffer(h+n*4));
+  const w=(o,s)=>{for(let i=0;i<s.length;i++)dv.setUint8(o+i,s.charCodeAt(i));};
+  w(0,'RIFF');dv.setUint32(4,36+n*4,true);w(8,'WAVEfmt ');dv.setUint32(16,16,true);
+  dv.setUint16(20,1,true);dv.setUint16(22,2,true);dv.setUint32(24,SR,true);
+  dv.setUint32(28,SR*4,true);dv.setUint16(32,4,true);dv.setUint16(34,16,true);w(36,'data');dv.setUint32(40,n*4,true);
+  for(let i=0;i<n;i++){dv.setInt16(h+i*4,clamp(L[i]*32767,-32768,32767),true);dv.setInt16(h+i*4+2,clamp(R[i]*32767,-32768,32767),true);}
+  return new Blob([dv.buffer],{type:'audio/wav'});
+}
+
+refresh();
+
+/* ---------- PWA: service worker registration ---------- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
